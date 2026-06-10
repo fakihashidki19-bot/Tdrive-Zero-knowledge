@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# TDrive Final Production Setup Script
+# Run this once with sudo to finalize the background services.
+
+set -e
+
+# Placeholder for the base path. Users should adjust this.
+BASE_PATH="/home/YOUR_USERNAME/Tdrive"
+
+echo "Starting TDrive Final Setup..."
+
+# 1. Copy Service Files
+cp "$BASE_PATH/deploy/tdrive-agent.service" /etc/systemd/system/
+cp "$BASE_PATH/deploy/tdrive-web.service" /etc/systemd/system/
+
+# 2. Reload and Enable
+systemctl daemon-reload
+systemctl enable tdrive-agent.service
+systemctl enable tdrive-web.service
+
+# 3. Start Services
+systemctl restart tdrive-agent.service
+systemctl restart tdrive-web.service
+
+echo "------------------------------------------------"
+echo "TDrive is now running in the background!"
+echo "You can close all terminals now."
+echo "------------------------------------------------"
+echo "Access URLs:"
+echo "Local:    http://localhost:3000"
+echo "Tailscale: http://$(tailscale ip -4):3000"
+echo "------------------------------------------------"

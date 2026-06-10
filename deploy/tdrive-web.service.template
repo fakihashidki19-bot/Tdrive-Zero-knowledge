@@ -1,0 +1,20 @@
+[Unit]
+Description=TDrive Web Frontend
+After=network.target tdrive-agent.service
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/Tdrive/web
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=tdrive-web
+Environment=NODE_ENV=production
+Environment=NEXT_PUBLIC_API_URL=/api/v1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

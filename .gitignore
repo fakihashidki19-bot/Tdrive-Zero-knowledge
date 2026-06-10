@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env
+.env.*
+
+# TDrive Specific (Sessions and DB)
+*.db
+*.db-wal
+*.db-shm
+*.session
+*.session-journal
+tdrive_backup.zip
+*.tmp
+*.tmp.zip
+
+# Logs
+*.log
+logs/
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.env*
+web/npm-debug.log*
+
+# Deployment
+deploy/certs/*.pem
+deploy/certs/*.key
+deploy/certs/*.crt
+deploy/*.service
+scripts/*.sh
+!scripts/*.template
+!deploy/*.template
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.o

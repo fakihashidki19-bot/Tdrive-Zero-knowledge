@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # TDrive Backend (FastAPI Agent)
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/api.Dockerfile
+    container_name: tdrive-api
+    restart: always
+    volumes:
+      - ~/.tdrive:/root/.tdrive
+    environment:
+      - TDRIVE_CONFIG_DIR=/root/.tdrive
+    networks:
+      - tdrive-network
+
+  # TDrive Frontend (Next.js)
+  web:
+    build:
+      context: ./web
+      dockerfile: ../docker/web.Dockerfile
+    container_name: tdrive-web
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    networks:
+      - tdrive-network
+
+  # Nginx Reverse Proxy (Unified Origin)
+  proxy:
+    image: nginx:alpine
+    container_name: tdrive-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - tdrive-network
+
+networks:
+  tdrive-network:
+    driver: bridge

@@ -1,0 +1,19 @@
+[Unit]
+Description=TDrive Agent - Telegram Storage Backend
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/Tdrive
+ExecStart=/home/YOUR_USERNAME/Tdrive/venv/bin/python -m api.main
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=tdrive-agent
+Environment=PYTHONPATH=.
+Environment=TDRIVE_CONFIG_DIR=/home/YOUR_USERNAME/.tdrive
+
+[Install]
+WantedBy=multi-user.target
