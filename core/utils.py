@@ -7,8 +7,28 @@ Designed to handle large files efficiently using streaming.
 
 import hashlib
 import os
+import platform
+import logging
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Union
+
+logger = logging.getLogger(__name__)
+
+
+def secure_permissions(path: Union[str, Path], is_dir: bool = False) -> None:
+    """
+    Applies secure permissions (600 for files, 700 for directories) in a cross-platform way.
+    On Windows, this is a graceful no-op as octal permissions are not supported natively by os.chmod.
+    """
+    if platform.system() == "Windows":
+        logger.debug(f"Skipping POSIX permissions on Windows for: {path}")
+        return
+
+    try:
+        mode = 0o700 if is_dir else 0o600
+        os.chmod(str(path), mode)
+    except Exception as e:
+        logger.warning(f"Failed to set permissions for {path}: {e}")
 
 
 def get_file_sha256(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:

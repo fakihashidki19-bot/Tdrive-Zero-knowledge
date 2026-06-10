@@ -5,6 +5,7 @@ The central brain of TDrive. Manages the high-level workflows for uploading
 and downloading files, handling encryption, chunking, and database persistence.
 """
 
+import os
 import base64
 import json
 import logging
@@ -14,7 +15,7 @@ import tempfile
 import asyncio
 import time
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, List, Optional
+from typing import Any, AsyncGenerator, Callable, List, Optional, Dict
 
 from sqlalchemy import select, and_
 from core.client import TDriveClient
@@ -50,6 +51,7 @@ class TDriveManager:
         channel_id: int,
         master_password: str,
         master_salt: bytes,
+        upload_locks: Optional[Dict[str, asyncio.Lock]] = None
     ):
         """
         Initializes the TDriveManager.
@@ -60,6 +62,8 @@ class TDriveManager:
         self.master_password = master_password
         self.master_salt = master_salt
         self.key = derive_key(master_password, master_salt)
+        # Use provided shared locks or fall back to instance-local (for tests/CLI)
+        self._upload_locks = upload_locks if upload_locks is not None else {}
 
     def _generate_metadata_tag(self, file_id: str, file_uuid: str, filename: str, sequence: int, total_chunks: int) -> str:
         """
@@ -129,51 +133,64 @@ class TDriveManager:
             existing_chunks = {c.sequence for c in db.get_chunks(file_id)}
 
         # Phase 2: Upload Chunks
-        for seq, chunk_data in enumerate(chunk_file_iterator(path, DEFAULT_CHUNK_SIZE)):
-            if seq in existing_chunks:
-                continue
-
-            # 1. Encrypt
-            nonce, ciphertext = encrypt(chunk_data, self.key)
-            encrypted_blob = nonce + ciphertext
-            chunk_sha256 = get_bytes_sha256(encrypted_blob)
+        lock = self._upload_locks.setdefault(file_id, asyncio.Lock())
             
-            # 2. Upload
-            metadata = self._generate_metadata_tag(file_id, file_uuid, filename, seq, chunk_count)
-            caption = f"tdrive:{metadata}"
-            
+        async with lock:
             try:
-                message = await self.tg_client.send_document(
-                    self.channel_id,
-                    encrypted_blob,
-                    caption=caption
-                )
-            except Exception as e:
+                # Refresh existing chunks within the lock to handle concurrent race
                 with self.db_session.get_session() as session:
                     db = DBManager(session)
-                    db.update_file_status(file_id, "error")
-                raise ManagerError(f"Failed to upload chunk {seq}: {str(e)}")
+                    existing_chunks = {c.sequence for c in db.get_chunks(file_id)}
 
-            # 3. Record Chunk in its own transaction
-            with self.db_session.get_session() as session:
-                db = DBManager(session)
-                db.add_chunk(
-                    chunk_id=uuid.uuid4().hex,
-                    file_id=file_id,
-                    sequence=seq,
-                    msg_id=message.id,
-                    channel_id=self.channel_id,
-                    chunk_size=len(encrypted_blob),
-                    chunk_sha256=chunk_sha256
-                )
+                for seq, chunk_data in enumerate(chunk_file_iterator(path, DEFAULT_CHUNK_SIZE)):
+                    if seq in existing_chunks:
+                        continue
 
-            if progress_callback:
-                progress_callback(seq + 1, chunk_count)
+                    # 1. Encrypt
+                    nonce, ciphertext = encrypt(chunk_data, self.key)
+                    encrypted_blob = nonce + ciphertext
+                    chunk_sha256 = get_bytes_sha256(encrypted_blob)
+                    
+                    # 2. Upload
+                    metadata = self._generate_metadata_tag(file_id, file_uuid, filename, seq, chunk_count)
+                    caption = f"tdrive:{metadata}"
+                    
+                    try:
+                        message = await self.tg_client.send_document(
+                            self.channel_id,
+                            encrypted_blob,
+                            caption=caption
+                        )
+                    except Exception as e:
+                        with self.db_session.get_session() as session:
+                            db = DBManager(session)
+                            db.update_file_status(file_id, "error")
+                        raise ManagerError(f"Failed to upload chunk {seq}: {str(e)}")
 
-        # Phase 3: Finalize
-        with self.db_session.get_session() as session:
-            db = DBManager(session)
-            db.update_file_status(file_id, "completed")
+                    # 3. Record Chunk in its own transaction
+                    with self.db_session.get_session() as session:
+                        db = DBManager(session)
+                        db.add_chunk(
+                            chunk_id=uuid.uuid4().hex,
+                            file_id=file_id,
+                            sequence=seq,
+                            msg_id=message.id,
+                            channel_id=self.channel_id,
+                            chunk_size=len(encrypted_blob),
+                            chunk_sha256=chunk_sha256
+                        )
+
+                    if progress_callback:
+                        progress_callback(seq + 1, chunk_count)
+
+                # Phase 3: Finalize
+                with self.db_session.get_session() as session:
+                    db = DBManager(session)
+                    db.update_file_status(file_id, "completed")
+            finally:
+                # Cleanup registry if we were the last one using this lock
+                # (Optional optimization: only pop if no one is waiting, but setdefault is safe)
+                self._upload_locks.pop(file_id, None)
             
         return file_id
 
@@ -244,67 +261,70 @@ class TDriveManager:
         current_seq = 0
         
         # 2. Read stream in chunks
-        try:
-            while True:
-                if asyncio.iscoroutinefunction(stream.read):
-                    chunk_data = await stream.read(DEFAULT_CHUNK_SIZE)
-                else:
-                    chunk_data = stream.read(DEFAULT_CHUNK_SIZE)
+        lock = self._upload_locks.setdefault(temp_fid, asyncio.Lock())
+        async with lock:
+            try:
+                while True:
+                    if asyncio.iscoroutinefunction(stream.read):
+                        chunk_data = await stream.read(DEFAULT_CHUNK_SIZE)
+                    else:
+                        chunk_data = stream.read(DEFAULT_CHUNK_SIZE)
 
-                if not chunk_data:
-                    break
-                
-                full_hash.update(chunk_data)
-                
-                nonce, ciphertext = encrypt(chunk_data, self.key)
-                encrypted_blob = nonce + ciphertext
-                chunk_sha256 = get_bytes_sha256(encrypted_blob)
-                
-                metadata = self._generate_metadata_tag(temp_fid, file_uuid, filename, current_seq, chunk_count)
-                caption = f"tdrive:{metadata}"
-                
-                message = await self.tg_client.send_document(
-                    self.channel_id,
-                    encrypted_blob,
-                    caption=caption
-                )
+                    if not chunk_data:
+                        break
+                    
+                    full_hash.update(chunk_data)
+                    
+                    nonce, ciphertext = encrypt(chunk_data, self.key)
+                    encrypted_blob = nonce + ciphertext
+                    chunk_sha256 = get_bytes_sha256(encrypted_blob)
+                    
+                    metadata = self._generate_metadata_tag(temp_fid, file_uuid, filename, current_seq, chunk_count)
+                    caption = f"tdrive:{metadata}"
+                    
+                    message = await self.tg_client.send_document(
+                        self.channel_id,
+                        encrypted_blob,
+                        caption=caption
+                    )
+                    
+                    with self.db_session.get_session() as session:
+                        db = DBManager(session)
+                        db.add_chunk(
+                            chunk_id=uuid.uuid4().hex,
+                            file_id=temp_fid,
+                            sequence=current_seq,
+                            msg_id=message.id,
+                            channel_id=self.channel_id,
+                            chunk_size=len(encrypted_blob),
+                            chunk_sha256=chunk_sha256
+                        )
+                    
+                    current_seq += 1
+                    if progress_callback:
+                        progress_callback(current_seq, chunk_count)
+
+                final_sha256 = full_hash.hexdigest()
                 
                 with self.db_session.get_session() as session:
                     db = DBManager(session)
-                    db.add_chunk(
-                        chunk_id=uuid.uuid4().hex,
-                        file_id=temp_fid,
-                        sequence=current_seq,
-                        msg_id=message.id,
-                        channel_id=self.channel_id,
-                        chunk_size=len(encrypted_blob),
-                        chunk_sha256=chunk_sha256
-                    )
-                
-                current_seq += 1
-                if progress_callback:
-                    progress_callback(current_seq, chunk_count)
-
-            final_sha256 = full_hash.hexdigest()
-            
-            with self.db_session.get_session() as session:
-                db = DBManager(session)
-                file_record = db.get_file(temp_fid)
-                if file_record:
-                    file_record.sha256 = final_sha256
-                    file_record.status = "completed"
-                    
-            return temp_fid
-
-        except Exception as e:
-            logger.error(f"Stream upload failed: {e}")
-            with self.db_session.get_session() as session:
-                db = DBManager(session)
-                try:
-                    db.update_file_status(temp_fid, "error")
-                except:
-                    pass
-            raise
+                    file_record = db.get_file(temp_fid)
+                    if file_record:
+                        file_record.sha256 = final_sha256
+                        file_record.status = "completed"
+                        
+                return temp_fid
+            except Exception as e:
+                logger.error(f"Stream upload failed: {e}")
+                with self.db_session.get_session() as session:
+                    db = DBManager(session)
+                    try:
+                        db.update_file_status(temp_fid, "error")
+                    except:
+                        pass
+                raise
+            finally:
+                self._upload_locks.pop(temp_fid, None)
 
     async def download_file_stream(
         self,
@@ -340,9 +360,12 @@ class TDriveManager:
             msg_id = chunk_info["msg_id"]
             expected_chunk_sha = chunk_info["sha256"]
 
-            with tempfile.NamedTemporaryFile(delete=True) as tmp_chunk:
-                temp_chunk_path = Path(tmp_chunk.name)
-                
+            # Use mkstemp and close handle immediately to avoid Windows sharing violations
+            fd, tmp_name = tempfile.mkstemp(suffix=".chunk")
+            os.close(fd)
+            temp_chunk_path = Path(tmp_name)
+            
+            try:
                 msg = await self.tg_client.get_message(self.channel_id, msg_id)
                 if not msg:
                     raise ManagerError(f"Message {msg_id} not found on Telegram.")
@@ -377,6 +400,9 @@ class TDriveManager:
 
                 if progress_callback:
                     progress_callback(i + 1, expected_chunk_count)
+            finally:
+                if temp_chunk_path.exists():
+                    temp_chunk_path.unlink()
 
     async def trash_file(self, file_id: str) -> bool:
         """Moves a file to trash (soft delete)."""
@@ -393,6 +419,7 @@ class TDriveManager:
     async def delete_file_permanently(self, file_id: str) -> int:
         """
         Deletes a file from both Telegram and the local database permanently.
+        Also purges decrypted preview cache.
         """
         with self.db_session.get_session() as session:
             db = DBManager(session)
@@ -403,6 +430,8 @@ class TDriveManager:
             chunks = db.get_chunks(file_id)
             msg_ids = [c.msg_id for c in chunks]
             deleted_chunks_count = len(msg_ids)
+            sha256 = file_record.sha256
+            filename = file_record.filename
 
             # 1. Delete from Telegram
             if msg_ids:
@@ -414,6 +443,18 @@ class TDriveManager:
             # 2. Delete from Database
             db.delete_file_permanently(file_id)
             
+            # 3. Purge Preview Cache
+            try:
+                from core.session import SessionManager
+                sm = SessionManager()
+                ext = Path(filename).suffix
+                cache_file = sm.preview_cache_dir / f"{sha256}{ext}"
+                if cache_file.exists():
+                    cache_file.unlink()
+                    logger.info(f"Purged preview cache for {filename}")
+            except Exception as e:
+                logger.error(f"Failed to purge preview cache: {e}")
+
             return deleted_chunks_count
 
     async def delete_file(self, file_id: str) -> bool:

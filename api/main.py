@@ -2,10 +2,13 @@
 TDrive API Main Entry Point.
 """
 
+import os
+import sys
 import time
 import uuid
 import logging
 import asyncio
+import platform
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -22,22 +25,32 @@ from api.schemas import StructuredResponse, ErrorDetail
 from api.dependencies import close_tg_client, get_manager_by_ticket, validate_csrf, download_tickets, validate_integrity, _state
 from core.manager import TDriveManager
 
+# --- Event Loop Configuration ---
+if platform.system() != "Windows":
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        logging.info("Using uvloop event loop policy.")
+    except ImportError:
+        logging.warning("uvloop not installed, using default asyncio loop.")
+
 # --- Rate Limiting Setup ---
 limiter = Limiter(key_func=get_remote_address)
 
 async def trash_cleanup_worker():
     """Background worker to purge old trash items every 24 hours."""
     from core.session import SessionManager
-    from core.db.session import DatabaseSession
+    from api.dependencies import get_db_session
     from core.db.manager import DBManager
     from core.client import TDriveClient
     from core.integrity import IntegrityGuard
     
     RETENTION_DAYS = 30 
+    sm = SessionManager()
+    db_session_factory = get_db_session(sm)
     
     while True:
         try:
-            sm = SessionManager()
             from core.feature_registry import FeatureRegistry, FeatureID
             registry = FeatureRegistry(sm)
             
@@ -59,22 +72,22 @@ async def trash_cleanup_worker():
             if retention > 0:
                 logging.info(f"Starting scheduled trash cleanup (Retention: {retention} days)")
                 
-                db_session_factory = DatabaseSession(str(sm.config_dir / "tdrive.db"))
                 with db_session_factory.get_session() as session:
                     db = DBManager(session)
                     old_files = db.get_old_trashed_files(retention)
                     
                     if old_files:
                         logging.info(f"Found {len(old_files)} items to purge from trash.")
-                        tg = TDriveClient(sm.config_dir / "tdrive.session", config["api_id"], config["api_hash"])
-                        await tg.connect()
+                        from api.dependencies import get_tg_client
+                        tg = await get_tg_client(sm)
                         
                         manager = TDriveManager(
                             db_session_factory, 
                             tg, 
                             config["channel_id"], 
                             master_password="", 
-                            master_salt=bytes.fromhex(config["master_salt"])
+                            master_salt=bytes.fromhex(config["master_salt"]),
+                            upload_locks=_state.upload_locks
                         )
                         
                         for f in old_files:
@@ -84,7 +97,6 @@ async def trash_cleanup_worker():
                             except Exception as e:
                                 logging.error(f"Failed to purge {f.filename}: {e}")
                                 
-                        await tg.disconnect()
             
         except Exception as e:
             logging.error(f"Trash cleanup worker error: {e}")
@@ -95,9 +107,9 @@ async def preview_cache_cleanup_worker():
     """Background worker to purge old decrypted preview assets every 10 minutes."""
     from core.session import SessionManager
     from core.integrity import IntegrityGuard
+    sm = SessionManager()
     while True:
         try:
-            sm = SessionManager()
             from core.feature_registry import FeatureRegistry, FeatureID
             registry = FeatureRegistry(sm)
             
@@ -119,14 +131,16 @@ async def preview_cache_cleanup_worker():
 async def materialization_worker():
     """Background worker to finalize recovered files (thumbnails, hashes)."""
     from core.session import SessionManager
-    from core.db.session import DatabaseSession
+    from api.dependencies import get_db_session
     from core.db.manager import DBManager
     from core.client import TDriveClient
     from core.integrity import IntegrityGuard
     
+    sm = SessionManager()
+    db_session_factory = get_db_session(sm)
+
     while True:
         try:
-            sm = SessionManager()
             from core.feature_registry import FeatureRegistry, FeatureID
             registry = FeatureRegistry(sm)
             
@@ -147,7 +161,6 @@ async def materialization_worker():
                 await asyncio.sleep(10)
                 continue
                 
-            db_session_factory = DatabaseSession(str(sm.config_dir / "tdrive.db"))
             with db_session_factory.get_session() as session:
                 db = DBManager(session)
                 pending_files = db.list_unmaterialized_files()
@@ -155,8 +168,8 @@ async def materialization_worker():
                 
             if pending_ids:
                 logging.info(f"MaterializationWorker: Processing {len(pending_ids)} recovered items.")
-                tg = TDriveClient(sm.config_dir / "tdrive.session", config["api_id"], config["api_hash"])
-                await tg.connect()
+                from api.dependencies import get_tg_client
+                tg = await get_tg_client(sm)
                 
                 # Use current master password if set in app state
                 if _state.master_password:
@@ -165,7 +178,8 @@ async def materialization_worker():
                         tg, 
                         config["channel_id"], 
                         _state.master_password, 
-                        bytes.fromhex(config["master_salt"])
+                        bytes.fromhex(config["master_salt"]),
+                        upload_locks=_state.upload_locks
                     )
                     
                     for fid in pending_ids:
@@ -176,7 +190,6 @@ async def materialization_worker():
                         except Exception as e:
                             logging.error(f"MaterializationWorker: Failed to finalize {fid}: {e}")
                             
-                await tg.disconnect()
             
         except Exception as e:
             logging.error(f"Materialization worker error: {e}")

@@ -7,7 +7,7 @@ Defines the SQLAlchemy models for files and their associated chunks.
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -25,7 +25,7 @@ class FileModel(Base):
     file_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     file_uuid: Mapped[str] = mapped_column(String(36), unique=True, nullable=False) 
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    virtual_path: Mapped[str] = mapped_column(Text, nullable=False)
+    virtual_path: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -34,7 +34,7 @@ class FileModel(Base):
     thumbnail: Mapped[Optional[str]] = mapped_column(Text, nullable=True) 
     status: Mapped[str] = mapped_column(String(20), default="pending")
     sync_status: Mapped[str] = mapped_column(String(20), default="synced") 
-    is_trashed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_trashed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     original_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_materialized: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -66,9 +66,12 @@ class ChunkModel(Base):
     Represents an encrypted chunk of a file stored on Telegram.
     """
     __tablename__ = "chunks"
+    __table_args__ = (
+        UniqueConstraint("file_id", "sequence", name="uq_chunk_file_sequence"),
+    )
 
     chunk_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    file_id: Mapped[str] = mapped_column(String(64), ForeignKey("files.file_id", ondelete="CASCADE"), nullable=False)
+    file_id: Mapped[str] = mapped_column(String(64), ForeignKey("files.file_id", ondelete="CASCADE"), nullable=False, index=True)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     msg_id: Mapped[int] = mapped_column(Integer, nullable=False)
     channel_id: Mapped[int] = mapped_column(Integer, nullable=False)

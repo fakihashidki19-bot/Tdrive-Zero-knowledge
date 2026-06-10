@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 from core.session import SessionManager
+from core.utils import secure_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ class IntegrityGuard:
         
         try:
             self.lock_file.write_text(fp)
-            os.chmod(self.lock_file, 0o600)
+            secure_permissions(self.lock_file)
             logger.info(f"Instance fingerprint locked successfully.")
             return True
         except Exception as e:

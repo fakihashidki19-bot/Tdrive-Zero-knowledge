@@ -8,8 +8,11 @@ and application settings in the user's home directory.
 import json
 import os
 import shutil
+import platform
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+
+from core.utils import secure_permissions
 
 
 class SessionError(Exception):
@@ -28,12 +31,16 @@ class SessionManager:
 
         Args:
             config_dir: Optional override for the configuration directory.
-                        Defaults to ~/.tdrive/
+                        Defaults to TDRIVE_CONFIG_DIR env var or ~/.tdrive/
         """
         if config_dir:
             self.config_dir = Path(config_dir).expanduser().resolve()
         else:
-            self.config_dir = Path.home() / ".tdrive"
+            env_dir = os.getenv("TDRIVE_CONFIG_DIR")
+            if env_dir:
+                self.config_dir = Path(env_dir).expanduser().resolve()
+            else:
+                self.config_dir = Path.home() / ".tdrive"
 
         self.config_file = self.config_dir / "config.json"
         self.tmp_dir = self.config_dir / "tmp"
@@ -50,7 +57,7 @@ class SessionManager:
         for d in [self.config_dir, self.tmp_dir, self.cache_dir, self.preview_cache_dir]:
             if not d.exists():
                 d.mkdir(parents=True, exist_ok=True)
-                os.chmod(d, 0o700)
+                secure_permissions(d, is_dir=True)
 
     def cleanup_tmp(self, max_age_hours: int = 24) -> int:
         """
@@ -109,7 +116,7 @@ class SessionManager:
             with open(temp_file, "w") as f:
                 json.dump(config_data, f, indent=4)
             
-            os.chmod(temp_file, 0o600)
+            secure_permissions(temp_file)
             
             shutil.move(str(temp_file), str(self.config_file))
         except Exception as e:

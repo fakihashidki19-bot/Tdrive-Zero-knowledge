@@ -9,7 +9,7 @@ services:
     container_name: tdrive-api
     restart: always
     volumes:
-      - ~/.tdrive:/root/.tdrive
+      - ${TDRIVE_DATA:-~/.tdrive}:/root/.tdrive
     environment:
       - TDRIVE_CONFIG_DIR=/root/.tdrive
     networks:

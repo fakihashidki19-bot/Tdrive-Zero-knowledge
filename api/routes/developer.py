@@ -36,12 +36,20 @@ class LogEntry(BaseModel):
     module: str
     message: str
 
+class DriveMetrics(BaseModel):
+    mountpoint: str
+    total: float
+    used: float
+    free: float
+    percent: float
+
 class SystemMetrics(BaseModel):
     cpu_percent: float
     ram_usage: float 
     ram_total: float
     disk_usage: float
     disk_total: float
+    drives: List[DriveMetrics] = []
     uptime: float
     timestamp: datetime
 
@@ -158,16 +166,44 @@ async def get_logs(
 @router.get("/metrics", response_model=StructuredResponse[SystemMetrics], dependencies=[Depends(check_dev_mode)])
 async def get_metrics():
     mem = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
     
+    drives = []
+    if platform.system() == "Windows":
+        for part in psutil.disk_partitions(all=False):
+            if 'cdrom' in part.opts or part.fstype == '':
+                continue
+            try:
+                usage = psutil.disk_usage(part.mountpoint)
+                drives.append(DriveMetrics(
+                    mountpoint=part.mountpoint,
+                    total=usage.total / (1024**3),
+                    used=usage.used / (1024**3),
+                    free=usage.free / (1024**3),
+                    percent=usage.percent
+                ))
+            except PermissionError:
+                continue
+    else:
+        usage = psutil.disk_usage('/')
+        drives.append(DriveMetrics(
+            mountpoint="/",
+            total=usage.total / (1024**3),
+            used=usage.used / (1024**3),
+            free=usage.free / (1024**3),
+            percent=usage.percent
+        ))
+
+    main_disk = drives[0] if drives else DriveMetrics(mountpoint="N/A", total=0, used=0, free=0, percent=0)
+
     return StructuredResponse(
         success=True,
         data=SystemMetrics(
             cpu_percent=psutil.cpu_percent(),
             ram_usage=mem.used / (1024 * 1024),
             ram_total=mem.total / (1024 * 1024),
-            disk_usage=disk.used / (1024 * 1024 * 1024),
-            disk_total=disk.total / (1024 * 1024 * 1024),
+            disk_usage=main_disk.used,
+            disk_total=main_disk.total,
+            drives=drives,
             uptime=time.time() - psutil.boot_time(),
             timestamp=datetime.now(timezone.utc)
         )

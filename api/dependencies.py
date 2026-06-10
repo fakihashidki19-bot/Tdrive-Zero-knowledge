@@ -9,7 +9,7 @@ import asyncio
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Annotated, Optional, Any
+from typing import Annotated, Optional, Any, Dict
 
 from fastapi import Depends, HTTPException, Header, status, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -52,6 +52,8 @@ class AppState:
     master_password: Optional[str] = None
     session_token: Optional[str] = None
     token_expiry: Optional[datetime] = None
+    db_session: Optional[DatabaseSession] = None
+    upload_locks: Dict[str, asyncio.Lock] = {}
     client_lock = asyncio.Lock()
     
     # Brute-force tracking
@@ -165,8 +167,10 @@ async def validate_integrity(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def get_db_session(sm: Annotated[SessionManager, Depends(get_session_manager)]) -> DatabaseSession:
-    db_path = sm.config_dir / "tdrive.db"
-    return DatabaseSession(str(db_path))
+    if _state.db_session is None:
+        db_path = sm.config_dir / "tdrive.db"
+        _state.db_session = DatabaseSession(str(db_path))
+    return _state.db_session
 
 async def get_tg_client(sm: Annotated[SessionManager, Depends(get_session_manager)]) -> TDriveClient:
     """
@@ -232,7 +236,8 @@ async def get_manager(
         tg,
         config["channel_id"],
         _state.master_password,
-        bytes.fromhex(config["master_salt"])
+        bytes.fromhex(config["master_salt"]),
+        upload_locks=_state.upload_locks
     )
     return manager
 
@@ -261,7 +266,8 @@ async def get_manager_by_ticket(
         tg,
         config["channel_id"],
         _state.master_password,
-        bytes.fromhex(config["master_salt"])
+        bytes.fromhex(config["master_salt"]),
+        upload_locks=_state.upload_locks
     )
 
 def clear_session():
