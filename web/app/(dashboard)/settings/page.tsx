@@ -336,7 +336,7 @@ export default function SettingsPage() {
             <Lock size={16} />
          </div>
          <p className="text-[9px] font-black text-neutral-400 uppercase tracking-[0.4em]">
-            TDrive Agent • Build 1.3.3 • Build with DLA
+            TDrive Agent • Build 1.4.0 • Build with DLA
          </p>
       </footer>
     </div>

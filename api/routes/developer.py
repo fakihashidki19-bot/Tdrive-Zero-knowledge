@@ -142,7 +142,7 @@ async def get_dev_status(
     return StructuredResponse(
         success=True,
         data=DevStatus(
-            api_version="1.3.3",
+            api_version="1.4.0",
             python_version=platform.python_version(),
             os_info=f"{platform.system()} {platform.release()}",
             arch=platform.machine(),
@@ -327,7 +327,7 @@ async def generate_support_bundle(
     with zipfile.ZipFile(bundle_path, 'w') as zf:
         logs_text = "\n".join([f"[{l.timestamp}] {l.level} {l.module}: {l.message}" for l in log_handler.buffer])
         zf.writestr("agent_live_logs.txt", logs_text)
-        sys_info = {"version": "1.3.3", "os": platform.system(), "arch": platform.machine(), "python": platform.python_version()}
+        sys_info = {"version": "1.4.0", "os": platform.system(), "arch": platform.machine(), "python": platform.python_version()}
         zf.writestr("system_info.json", json.dumps(sys_info, indent=4))
         db_path = sm.config_dir / "tdrive.db"
         if db_path.exists():

@@ -77,6 +77,14 @@ The dashboard is accessible via `http://localhost:3000`.
 - **Private Channel**: Keep your storage channel **Private**. Do not set it to "Public" as it will expose your data.
 - **Access Control**: Use a secure tunnel (like Tailscale or Cloudflare) if exposing the dashboard to the internet.
 
+## Fuel the Engine
+
+TDrive is open-source and free, but my coffee machine is neither. If this project has made your life easier (or at least more interesting), feel free to support the ongoing development:
+
+[**Fuel the Project via Saweria**](https://saweria.co/dimasla)
+
+*P.S. Donating won't technically make me a better coder, but it will definitely reduce the number of 'fixed stuff' commit messages.*
+
 ## License
 
 This project is licensed under the MIT License.

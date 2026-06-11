@@ -74,3 +74,31 @@ export interface StructuredResponse<T> {
     message: string;
   };
 }
+
+// --- Analytics Types ---
+
+export interface StorageOverview {
+  total_files: number;
+  total_size: number;
+  trash_size: number;
+  estimated_capacity: number;
+}
+
+export interface FileTypeStats {
+  category: string;
+  count: number;
+  size: number;
+  percentage: number;
+}
+
+export interface FolderAnalytics {
+  path: string;
+  total_files: number;
+  total_size: number;
+}
+
+export interface GrowthMetrics {
+  today: number;
+  last_7_days: number;
+  last_30_days: number;
+}

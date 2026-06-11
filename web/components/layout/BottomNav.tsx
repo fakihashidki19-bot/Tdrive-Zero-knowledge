@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   Folder, 
-  Clock, 
-  Settings
+  Settings,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/components/ui";
 
@@ -15,7 +15,7 @@ export function BottomNav() {
 
   const items = [
     { name: "Files", href: "/files", icon: Folder },
-    { name: "Jobs", href: "/jobs", icon: Clock },
+    { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

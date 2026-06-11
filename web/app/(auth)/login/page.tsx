@@ -169,7 +169,7 @@ export default function LoginPage() {
 
         {/* Footer Link */}
         <footer className="mt-12 md:absolute md:bottom-8 text-center text-xs text-neutral-400 font-medium">
-          TDrive Personal Agent v1.3.3 • Built for Privacy • Built with DLA
+          TDrive Personal Agent v1.4.0 • Built for Privacy • Built with DLA
         </footer>
       </div>
     </div>

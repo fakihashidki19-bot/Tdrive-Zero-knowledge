@@ -10,7 +10,8 @@ import {
   Database,
   ShieldCheck,
   Terminal,
-  Trash2
+  Trash2,
+  BarChart3
 } from "lucide-react";
 import { useUIStore } from "@/store/useUIStore";
 import { cn } from "@/components/ui";
@@ -37,6 +38,7 @@ export function Sidebar({ isMobile = false }: SidebarProps) {
 
   const navItems = [
     { name: "My Files", href: "/files", icon: Files },
+    { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Recent Tasks", href: "/jobs", icon: Clock },
     { name: "Trash Bin", href: "/trash", icon: Trash2 },
     { name: "Settings", href: "/settings", icon: Settings },

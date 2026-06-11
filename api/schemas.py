@@ -134,3 +134,27 @@ class JobSchema(BaseModel):
     error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+# --- Analytics Models ---
+
+class StorageOverview(BaseModel):
+    total_files: int
+    total_size: int
+    trash_size: int
+    estimated_capacity: int  
+
+class FileTypeStats(BaseModel):
+    category: str
+    count: int
+    size: int
+    percentage: float
+
+class FolderAnalytics(BaseModel):
+    path: str
+    total_files: int
+    total_size: int
+
+class GrowthMetrics(BaseModel):
+    today: int
+    last_7_days: int
+    last_30_days: int
