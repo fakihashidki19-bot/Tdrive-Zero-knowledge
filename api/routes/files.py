@@ -65,12 +65,59 @@ def generate_thumbnail(file_path: Path) -> Optional[str]:
 async def list_files(
     db_session: Annotated[DatabaseSession, Depends(get_db_session)],
     manager: Annotated[TDriveManager, Depends(get_manager)],
-    path: str = "/"
+    path: str = "/",
+    q: Optional[str] = None
 ):
     with db_session.get_session() as session:
         db = DBManager(session)
+        
+        if q and "starred:true" in q.lower():
+            files = db.list_starred_files()
+            search_text = q.lower().replace("starred:true", "").strip()
+            if search_text:
+                files = [f for f in files if search_text in f.filename.lower()]
+            return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in files])
+
         files = db.list_files(path)
         return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in files])
+
+@router.get("/starred", response_model=StructuredResponse[List[FileSchema]])
+async def list_starred_files(
+    db_session: Annotated[DatabaseSession, Depends(get_db_session)]
+):
+    """Lists all starred items."""
+    with db_session.get_session() as session:
+        db = DBManager(session)
+        files = db.list_starred_files()
+        return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in files])
+
+@router.post("/{file_id}/star", response_model=StructuredResponse[bool])
+async def star_file(
+    file_id: str,
+    db_session: Annotated[DatabaseSession, Depends(get_db_session)]
+):
+    """Marks a file as starred."""
+    with db_session.get_session() as session:
+        db = DBManager(session)
+        success = db.star_file(file_id, True)
+        if not success:
+            raise HTTPException(status_code=404, detail="File not found")
+        session.commit()
+        return StructuredResponse(success=True, data=True)
+
+@router.delete("/{file_id}/star", response_model=StructuredResponse[bool])
+async def unstar_file(
+    file_id: str,
+    db_session: Annotated[DatabaseSession, Depends(get_db_session)]
+):
+    """Removes a file from starred."""
+    with db_session.get_session() as session:
+        db = DBManager(session)
+        success = db.star_file(file_id, False)
+        if not success:
+            raise HTTPException(status_code=404, detail="File not found")
+        session.commit()
+        return StructuredResponse(success=True, data=True)
 
 @router.get("/{file_id}", response_model=StructuredResponse[FileDetailSchema])
 async def get_file_detail(

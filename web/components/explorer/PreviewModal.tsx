@@ -13,10 +13,12 @@ import {
   Loader2,
   AlertCircle,
   FileText,
-  File
+  File,
+  Star
 } from "lucide-react";
 import { Button, cn } from "@/components/ui";
 import { api } from "@/lib/axios";
+import { useStarFile } from "@/hooks/api/useFiles";
 import toast from "react-hot-toast";
 
 interface PreviewModalProps {
@@ -34,6 +36,7 @@ export function PreviewModal({ file, isOpen, onClose, onDownload, onDelete }: Pr
   const [error, setError] = React.useState<string | null>(null);
   const [isCopied, setIsCopied] = React.useState(false);
   const [ticket, setTicket] = React.useState<string | null>(null);
+  const starMutation = useStarFile();
 
   const fileExt = file.filename.split(".").pop()?.toLowerCase() || "";
   const isImage = ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(fileExt);
@@ -118,6 +121,16 @@ export function PreviewModal({ file, isOpen, onClose, onDownload, onDelete }: Pr
               <span className="ml-2 hidden sm:inline">Copy</span>
             </Button>
           )}
+
+          <Button 
+            variant="ghost" 
+            className={cn("h-10 rounded-xl transition-all", file.is_starred ? "text-amber-500 bg-amber-500/10 hover:bg-amber-500/20" : "text-white/60 hover:text-white hover:bg-white/10")} 
+            onClick={() => starMutation.mutate({ fileId: file.file_id, starred: !file.is_starred })}
+            disabled={starMutation.isPending}
+          >
+            {starMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Star size={18} fill={file.is_starred ? "currentColor" : "none"} />}
+            <span className="ml-2 hidden sm:inline">{file.is_starred ? "Starred" : "Star"}</span>
+          </Button>
 
           <Button variant="ghost" className="h-10 text-white/60 hover:text-white hover:bg-white/10 rounded-xl" onClick={onDownload}>
             <Download size={18} />

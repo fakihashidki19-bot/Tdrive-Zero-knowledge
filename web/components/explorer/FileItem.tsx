@@ -19,7 +19,8 @@ import {
   RotateCcw,
   History,
   CheckCircle2,
-  Circle
+  Circle,
+  Star
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import toast from "react-hot-toast";
@@ -27,6 +28,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { useUIStore } from "@/store/useUIStore";
 import { useSelectionStore } from "@/store/useSelectionStore";
+import { useStarFile } from "@/hooks/api/useFiles";
 import { cn, Button } from "@/components/ui";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -48,6 +50,7 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
   const { confirm, prompt, addNotification } = useNotificationStore();
   const { density } = useUIStore();
   const { selectedIds, toggleSelection, isSelectionMode, setSelectionMode } = useSelectionStore();
+  const starMutation = useStarFile();
 
   const isSelected = selectedIds.includes(file.file_id);
 
@@ -186,6 +189,12 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
     }
   };
 
+  const handleToggleStar = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (isTrashView) return;
+    starMutation.mutate({ fileId: file.file_id, starred: !file.is_starred });
+  };
+
   const handleItemClick = (e: React.MouseEvent) => {
     // 1. If in selection mode or using modifier keys, just toggle selection
     if (isSelectionMode || e.ctrlKey || e.metaKey) {
@@ -292,6 +301,17 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
         </div>
 
         <button 
+          onClick={handleToggleStar}
+          disabled={starMutation.isPending}
+          className={cn(
+            "absolute top-1.5 right-7 p-1.5 transition-all",
+            file.is_starred ? "text-amber-500 opacity-100" : "text-neutral-400 hover:text-amber-500 opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <Star size={14} fill={file.is_starred ? "currentColor" : "none"} />
+        </button>
+
+        <button 
           onClick={(e) => { e.stopPropagation(); setShowMobileMenu(true); }}
           className="absolute top-1.5 right-1.5 p-1.5 text-neutral-400 hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         >
@@ -307,9 +327,11 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
           onDelete={handleDelete}
           onRename={handleRename}
           onRestore={() => restoreMutation.mutate()}
+          onStar={handleToggleStar}
           isDownloading={isDownloading}
           isDeleting={isTrashView ? permanentDeleteMutation.isPending : trashMutation.isPending}
           isRenaming={renameMutation.isPending}
+          isStarring={starMutation.isPending}
           formatSize={formatSize}
         />
 
@@ -377,7 +399,20 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
 
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1">
         {!isSelectionMode && (
-          <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="hidden md:flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!isTrashView && (
+              <button 
+                onClick={handleToggleStar}
+                disabled={starMutation.isPending}
+                className={cn(
+                  "p-1.5 rounded-full transition-colors",
+                  file.is_starred ? "text-amber-500" : "text-neutral-400 hover:text-amber-500"
+                )}
+                title={file.is_starred ? "Remove from Starred" : "Add to Starred"}
+              >
+                <Star size={14} fill={file.is_starred ? "currentColor" : "none"} />
+              </button>
+            )}
             {isTrashView ? (
               <button 
                   onClick={(e) => { e.stopPropagation(); restoreMutation.mutate(); }}
@@ -438,9 +473,11 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
         onDelete={handleDelete}
         onRename={handleRename}
         onRestore={() => restoreMutation.mutate()}
+        onStar={handleToggleStar}
         isDownloading={isDownloading}
         isDeleting={isTrashView ? permanentDeleteMutation.isPending : trashMutation.isPending}
         isRenaming={renameMutation.isPending}
+        isStarring={starMutation.isPending}
         formatSize={formatSize}
       />
 
@@ -466,9 +503,11 @@ function ActionMenu({
   onDelete, 
   onRename,
   onRestore,
+  onStar,
   isDownloading, 
   isDeleting,
   isRenaming,
+  isStarring,
   formatSize
 }: any) {
   if (!isOpen) return null;
@@ -513,6 +552,18 @@ function ActionMenu({
               </button>
           ) : (
             <>
+              <button 
+                onClick={onStar}
+                disabled={isStarring}
+                className="w-full flex items-center space-x-3 p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-all active:scale-95"
+              >
+                <div className={cn("p-2 rounded-lg", file.is_starred ? "text-amber-500 bg-amber-500/10" : "text-neutral-500 bg-neutral-100 dark:bg-neutral-800")}>
+                  <Star size={18} fill={file.is_starred ? "currentColor" : "none"} />
+                </div>
+                <span className="text-xs font-bold">{file.is_starred ? "Remove from Favorites" : "Add to Favorites"}</span>
+                {isStarring && <Loader2 size={14} className="animate-spin ml-auto" />}
+              </button>
+
               {!file.is_folder && (
                 <button 
                   onClick={onDownload}

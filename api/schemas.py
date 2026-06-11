@@ -79,6 +79,7 @@ class FileSchema(BaseModel):
     chunk_count: int
     encrypted: bool
     is_folder: bool
+    is_starred: bool
     is_trashed: bool
     thumbnail: Optional[str] = None
     status: str

@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   Terminal,
   Trash2,
-  BarChart3
+  BarChart3,
+  Star
 } from "lucide-react";
 import { useUIStore } from "@/store/useUIStore";
 import { cn } from "@/components/ui";
@@ -40,6 +41,7 @@ export function Sidebar({ isMobile = false }: SidebarProps) {
     { name: "My Files", href: "/files", icon: Files },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Recent Tasks", href: "/jobs", icon: Clock },
+    { name: "Starred", href: "/starred", icon: Star },
     { name: "Trash Bin", href: "/trash", icon: Trash2 },
     { name: "Settings", href: "/settings", icon: Settings },
     { name: "Developer", href: "/developer", icon: Terminal },

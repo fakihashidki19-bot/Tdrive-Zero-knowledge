@@ -34,6 +34,7 @@ class FileModel(Base):
     thumbnail: Mapped[Optional[str]] = mapped_column(Text, nullable=True) 
     status: Mapped[str] = mapped_column(String(20), default="pending")
     sync_status: Mapped[str] = mapped_column(String(20), default="synced") 
+    is_starred: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_trashed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     original_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

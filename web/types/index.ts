@@ -7,6 +7,7 @@ export interface FileItem {
   chunk_count: number;
   encrypted: boolean;
   is_folder: boolean;
+  is_starred: boolean;
   is_trashed: boolean;
   thumbnail?: string;
   status: "pending" | "uploading" | "completed" | "error";

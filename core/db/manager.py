@@ -115,6 +115,16 @@ class DBManager:
         stmt = select(FileModel).where(FileModel.is_trashed == True).order_by(FileModel.deleted_at.desc())
         return list(self.session.execute(stmt).scalars().all())
 
+    def list_starred_files(self) -> List[FileModel]:
+        """Lists all files marked as favorites."""
+        stmt = select(FileModel).where(
+            and_(
+                FileModel.is_starred == True,
+                FileModel.is_trashed == False
+            )
+        ).order_by(FileModel.is_folder.desc(), FileModel.filename.asc())
+        return list(self.session.execute(stmt).scalars().all())
+
     def list_unmaterialized_files(self) -> List[FileModel]:
         """Lists files that require metadata healing (recovery items)."""
         stmt = select(FileModel).where(FileModel.is_materialized == False)
@@ -141,6 +151,14 @@ class DBManager:
             return True
         return False
 
+    def star_file(self, file_id: str, starred: bool = True) -> bool:
+        """Toggles the starred status of a file."""
+        f = self.get_file(file_id)
+        if f:
+            f.is_starred = starred
+            return True
+        return False
+
     def delete_file_permanently(self, file_id: str) -> bool:
         """Deletes a file record and its associated chunks (cascade)."""
         file_record = self.get_file(file_id)
@@ -148,6 +166,10 @@ class DBManager:
             self.session.delete(file_record)
             return True
         return False
+
+    def delete_file(self, file_id: str) -> bool:
+        """Alias for delete_file_permanently."""
+        return self.delete_file_permanently(file_id)
 
     def get_old_trashed_files(self, days: int) -> List[FileModel]:
         """Finds trashed files older than X days."""

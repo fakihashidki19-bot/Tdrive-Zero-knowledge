@@ -18,6 +18,8 @@ import {
   FolderPlus,
   ArrowLeft,
   Trash,
+  Star,
+  StarOff,
   Download,
   X,
   CheckSquare,
@@ -57,6 +59,19 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error?.message || "Failed to create folder");
+    }
+  });
+
+  const bulkStarMutation = useMutation({
+    mutationFn: async (starred: boolean) => {
+      await Promise.all(selectedIds.map(id => 
+        starred ? api.post(`/files/${id}/star`) : api.delete(`/files/${id}/star`)
+      ));
+    },
+    onSuccess: () => {
+      toast.success("Updated favorites");
+      queryClient.invalidateQueries({ queryKey: ["files", virtualPath] });
+      clearSelection();
     }
   });
 
@@ -124,9 +139,16 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
   const filteredFiles = React.useMemo(() => {
     if (!files) return [];
     if (!searchQuery) return files;
-    return files.filter(f => 
-      f.filename.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    
+    const query = searchQuery.toLowerCase();
+    const shouldShowOnlyStarred = query.includes("starred:true");
+    const cleanQuery = query.replace("starred:true", "").trim();
+
+    return files.filter((f: any) => {
+      const matchesName = f.filename.toLowerCase().includes(cleanQuery);
+      const matchesStarred = !shouldShowOnlyStarred || f.is_starred;
+      return matchesName && matchesStarred;
+    });
   }, [files, searchQuery]);
 
   return (
@@ -148,6 +170,24 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
               >
                 <Download size={18} className="sm:mr-2" />
                 <span className="hidden sm:inline">ZIP</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover:bg-white/10 rounded-xl font-bold h-10 px-3 md:px-4"
+                onClick={() => bulkStarMutation.mutate(true)}
+              >
+                <Star size={18} className="sm:mr-2" />
+                <span className="hidden sm:inline">Star</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover:bg-white/10 rounded-xl font-bold h-10 px-3 md:px-4"
+                onClick={() => bulkStarMutation.mutate(false)}
+              >
+                <StarOff size={18} className="sm:mr-2" />
+                <span className="hidden sm:inline">Unstar</span>
               </Button>
               <Button 
                 variant="ghost" 
