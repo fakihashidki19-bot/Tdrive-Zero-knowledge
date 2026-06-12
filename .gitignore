@@ -60,3 +60,6 @@ Thumbs.db
 .idea/
 *.swp
 *.o
+
+# TypeScript
+*.tsbuildinfo

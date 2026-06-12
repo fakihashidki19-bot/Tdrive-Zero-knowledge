@@ -65,12 +65,17 @@ class RecoveryEngine:
     Handles index rebuilding and integrity maintenance.
     """
 
-    def __init__(self, db_session: DatabaseSession, tg_client: TDriveClient, channel_id: int, master_password: Optional[str] = None):
+    def __init__(self, db_session: DatabaseSession, tg_client: TDriveClient, channel_id: int, master_password: Optional[str] = None, session_manager: Optional[Any] = None):
         self.db_session = db_session
         self.tg_client = tg_client
         self.channel_id = channel_id
         self.parser = MetadataV1Parser()
         self.master_password = master_password
+        if session_manager is not None:
+            self.sm = session_manager
+        else:
+            from core.session import SessionManager
+            self.sm = SessionManager()
         self.key: Optional[bytes] = None
 
     async def rebuild_index(self, full: bool = False) -> Dict[str, Any]:
@@ -92,9 +97,7 @@ class RecoveryEngine:
         
         # 1. Initialize local key if possible
         if self.master_password:
-            from core.session import SessionManager
-            sm = SessionManager()
-            local_salt = sm.get_salt()
+            local_salt = self.sm.get_salt()
             if local_salt:
                 self.key = derive_key(self.master_password, bytes.fromhex(local_salt))
 
@@ -152,13 +155,11 @@ class RecoveryEngine:
         if not self.master_password:
             return False
         try:
-            from core.session import SessionManager
-            sm = SessionManager()
-            old_config = sm.load_config()
+            old_config = self.sm.load_config()
             temp_config = old_config.copy()
             temp_config["master_salt"] = salt_hex
-            sm.save_config(temp_config)
-            sm.setup_password_verification(self.master_password)
+            self.sm.save_config(temp_config)
+            self.sm.setup_password_verification(self.master_password)
             return True
         except Exception as e:
             logger.error(f"Failed to sync salt: {e}")

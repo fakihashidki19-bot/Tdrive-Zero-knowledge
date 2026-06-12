@@ -5,9 +5,11 @@ import { useFiles } from "@/hooks/api/useFiles";
 import { FileItem } from "@/components/explorer/FileItem";
 import { Breadcrumbs } from "@/components/explorer/Breadcrumbs";
 import { UploadButton } from "@/components/operations/UploadButton";
+import { MoveDialog } from "@/components/explorer/MoveDialog";
 import { useUIStore } from "@/store/useUIStore";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { useSelectionStore } from "@/store/useSelectionStore";
+import { BulkActionToolbar } from "@/components/explorer/BulkActionToolbar";
 import { 
   LayoutGrid, 
   List as ListIcon, 
@@ -42,6 +44,11 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
   const { viewMode, setViewMode, searchQuery } = useUIStore();
   const { prompt, confirm, addNotification } = useNotificationStore();
   const { selectedIds, clearSelection, isSelectionMode, setSelectedIds } = useSelectionStore();
+  const [isMoveOpen, setIsMoveOpen] = React.useState(false);
+
+  const selectedItems = React.useMemo(() => {
+    return files ? files.filter(f => selectedIds.includes(f.file_id)) : [];
+  }, [files, selectedIds]);
 
   // Reset selection on navigation
   React.useEffect(() => {
@@ -154,64 +161,19 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* 1. Bulk Actions Toolbar (Sticky) */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg bg-neutral-900 text-white rounded-3xl shadow-2xl p-4 flex items-center justify-between animate-in slide-in-from-bottom-10 duration-300">
-           <div className="flex items-center space-x-3 ml-2">
-              <CheckSquare size={20} className="text-primary" />
-              <span className="font-black tracking-tight text-sm md:text-base">{selectedIds.length} selected</span>
-           </div>
-           
-           <div className="flex items-center space-x-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="hover:bg-white/10 rounded-xl font-bold h-10 px-3 md:px-4"
-                onClick={handleBulkDownload}
-              >
-                <Download size={18} className="sm:mr-2" />
-                <span className="hidden sm:inline">ZIP</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="hover:bg-white/10 rounded-xl font-bold h-10 px-3 md:px-4"
-                onClick={() => bulkStarMutation.mutate(true)}
-              >
-                <Star size={18} className="sm:mr-2" />
-                <span className="hidden sm:inline">Star</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="hover:bg-white/10 rounded-xl font-bold h-10 px-3 md:px-4"
-                onClick={() => bulkStarMutation.mutate(false)}
-              >
-                <StarOff size={18} className="sm:mr-2" />
-                <span className="hidden sm:inline">Unstar</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl font-bold h-10 px-3 md:px-4"
-                onClick={async () => {
-                  if (await confirm({ title: "Move to Trash?", message: `Do you want to move ${selectedIds.length} items to the trash?` })) {
-                    bulkTrashMutation.mutate();
-                  }
-                }}
-              >
-                <Trash size={18} className="sm:mr-2" />
-                <span className="hidden sm:inline">Trash</span>
-              </Button>
-              <div className="w-px h-6 bg-white/10 mx-1" />
-              <button 
-                onClick={clearSelection}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
-           </div>
-        </div>
-      )}
+      <BulkActionToolbar 
+        selectedCount={selectedIds.length}
+        onClear={clearSelection}
+        onDownload={handleBulkDownload}
+        onStar={() => bulkStarMutation.mutate(true)}
+        onUnstar={() => bulkStarMutation.mutate(false)}
+        onMove={() => setIsMoveOpen(true)}
+        onTrash={async () => {
+          if (await confirm({ title: "Move to Trash?", message: `Do you want to move ${selectedIds.length} items to the trash?` })) {
+            bulkTrashMutation.mutate();
+          }
+        }}
+      />
 
       {/* 2. Tool Bar Area */}
       <div className="flex flex-col space-y-4">
@@ -351,6 +313,16 @@ export default function FilesPage({ params }: { params: { path?: string[] } }) {
           </div>
         </>
       )}
+
+      <MoveDialog 
+        isOpen={isMoveOpen}
+        onClose={() => {
+          setIsMoveOpen(false);
+          clearSelection();
+        }}
+        items={selectedItems}
+        currentPath={virtualPath}
+      />
     </div>
   );
 }

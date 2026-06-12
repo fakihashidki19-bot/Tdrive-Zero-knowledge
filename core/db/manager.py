@@ -12,6 +12,17 @@ from sqlalchemy.orm import Session
 from core.db.models import ChunkModel, FileModel, JobModel, SettingModel
 
 
+def split_virtual_path(path: str) -> tuple[str, str]:
+    if not path or path == "/":
+        return "/", ""
+    if path.endswith("/") and len(path) > 1:
+        path = path[:-1]
+    idx = path.rfind("/")
+    if idx == 0:
+        return "/", path[1:]
+    return path[:idx], path[idx+1:]
+
+
 class DBError(Exception):
     """Base exception for database manager errors."""
     pass
@@ -265,6 +276,71 @@ class DBManager:
             self.session.delete(job)
             return True
         return False
+
+
+    # --- Move Operations ---
+
+    def move_file(self, file_id: str, new_path: str) -> bool:
+        """Moves a file record to a new virtual path and updates its filename."""
+        f = self.get_file(file_id)
+        if not f:
+            return False
+            
+        if not new_path.startswith("/"):
+            new_path = "/" + new_path
+            
+        if new_path == "/":
+            f.virtual_path = "/"
+        else:
+            dir_path, name = split_virtual_path(new_path)
+            f.virtual_path = dir_path
+            if name:
+                f.filename = name
+                
+        return True
+
+    def move_folder(self, file_id: str, new_path: str) -> bool:
+        """Moves a folder record to a new virtual path and updates its name."""
+        return self.move_file(file_id, new_path)
+
+    def item_exists_in_destination(self, filename: str, destination: str) -> bool:
+        """Checks if an active item with the same name exists in the destination."""
+        dest = destination if destination else "/"
+        stmt = select(FileModel).where(
+            and_(
+                FileModel.filename == filename,
+                FileModel.virtual_path == dest,
+                FileModel.is_trashed == False
+            )
+        )
+        result = self.session.execute(stmt).scalars().first()
+        return result is not None
+
+    def get_children_by_path(self, path: str, include_trashed: bool = False) -> List[FileModel]:
+        """Gets direct children of a folder path."""
+        stmt = select(FileModel).where(FileModel.virtual_path == path)
+        if not include_trashed:
+            stmt = stmt.where(FileModel.is_trashed == False)
+        return list(self.session.execute(stmt).scalars().all())
+
+    def get_all_descendants(self, path: str, include_trashed: bool = False) -> List[FileModel]:
+        """Gets all direct and nested descendants of a folder path."""
+        stmt = select(FileModel).where(
+            (FileModel.virtual_path == path) | (FileModel.virtual_path.like(path + "/%"))
+        )
+        if not include_trashed:
+            stmt = stmt.where(FileModel.is_trashed == False)
+        return list(self.session.execute(stmt).scalars().all())
+
+    def list_folders(self) -> List[FileModel]:
+        """Lists all folders that are not trashed."""
+        stmt = select(FileModel).where(
+            and_(
+                FileModel.is_folder == True,
+                FileModel.is_trashed == False
+            )
+        ).order_by(FileModel.virtual_path.asc(), FileModel.filename.asc())
+        return list(self.session.execute(stmt).scalars().all())
 
     # --- Setting Operations ---
 

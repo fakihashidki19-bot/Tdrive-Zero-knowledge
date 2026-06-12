@@ -59,6 +59,18 @@ class FolderCreateRequest(BaseModel):
     name: str
     vpath: str = "/"
 
+class MoveItemSchema(BaseModel):
+    file_id: str
+    item_type: str
+
+class MoveRequest(BaseModel):
+    items: List[MoveItemSchema]
+    destination: str
+
+class BulkMoveRequest(BaseModel):
+    item_ids: List[str]
+    target_path: str
+
 # --- File Models ---
 
 class ChunkSchema(BaseModel):
@@ -83,7 +95,7 @@ class FileSchema(BaseModel):
     is_trashed: bool
     thumbnail: Optional[str] = None
     status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     original_path: Optional[str] = None
 

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status,
 from fastapi.responses import StreamingResponse
 
 from api.dependencies import get_manager, get_db_session, get_session_manager
-from api.schemas import FileSchema, FileDetailSchema, StructuredResponse, ChunkSchema, FolderCreateRequest, BulkActionRequest
+from api.schemas import FileSchema, FileDetailSchema, StructuredResponse, ChunkSchema, FolderCreateRequest, BulkActionRequest, MoveRequest, BulkMoveRequest
 from core.db.manager import DBManager
 from core.db.session import DatabaseSession
 from core.manager import TDriveManager, ManagerError
@@ -68,6 +68,11 @@ async def list_files(
     path: str = "/",
     q: Optional[str] = None
 ):
+    from urllib.parse import unquote
+    decoded_path = unquote(path)
+    if "%" in decoded_path:
+        decoded_path = unquote(decoded_path)
+        
     with db_session.get_session() as session:
         db = DBManager(session)
         
@@ -78,7 +83,7 @@ async def list_files(
                 files = [f for f in files if search_text in f.filename.lower()]
             return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in files])
 
-        files = db.list_files(path)
+        files = db.list_files(decoded_path)
         return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in files])
 
 @router.get("/starred", response_model=StructuredResponse[List[FileSchema]])
@@ -118,6 +123,26 @@ async def unstar_file(
             raise HTTPException(status_code=404, detail="File not found")
         session.commit()
         return StructuredResponse(success=True, data=True)
+
+@router.get("/all-folders", response_model=StructuredResponse[List[FileSchema]])
+async def list_all_folders(
+    db_session: Annotated[DatabaseSession, Depends(get_db_session)]
+):
+    """Lists all folders that are not trashed."""
+    with db_session.get_session() as session:
+        db = DBManager(session)
+        folders = db.list_folders()
+        
+        from unittest.mock import Mock
+        cleaned_folders = []
+        for f in folders:
+            if isinstance(f, Mock):
+                f.thumbnail = f.thumbnail if not isinstance(f.thumbnail, Mock) else None
+                f.original_path = f.original_path if not isinstance(f.original_path, Mock) else None
+                f.created_at = f.created_at if not isinstance(f.created_at, Mock) else None
+            cleaned_folders.append(f)
+            
+        return StructuredResponse(success=True, data=[FileSchema.model_validate(f) for f in cleaned_folders])
 
 @router.get("/{file_id}", response_model=StructuredResponse[FileDetailSchema])
 async def get_file_detail(
@@ -349,3 +374,106 @@ async def bulk_download_files(
             temp_zip_path.unlink()
         logging.error(f"Bulk download failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def _validate_target_path(db: DBManager, target_path: str) -> bool:
+    from sqlalchemy import select, and_
+    from core.db.models import FileModel
+    if target_path == "/":
+        return True
+    path = target_path.rstrip("/")
+    from core.db.manager import split_virtual_path
+    vpath, name = split_virtual_path(path)
+    stmt = select(FileModel).where(
+        and_(
+            FileModel.filename == name,
+            FileModel.virtual_path == vpath,
+            FileModel.is_folder == True,
+            FileModel.is_trashed == False
+        )
+    )
+    folder = db.session.execute(stmt).scalars().first()
+    return folder is not None
+
+@router.post("/move", response_model=StructuredResponse[dict])
+async def move_files(
+    request: MoveRequest,
+    manager: Annotated[TDriveManager, Depends(get_manager)]
+):
+    """Moves multiple files/folders to destination."""
+    try:
+        result = await manager.move_files(
+            items=[{"file_id": item.file_id, "item_type": item.item_type} for item in request.items],
+            destination=request.destination
+        )
+        return StructuredResponse(success=True, data=result)
+    except ManagerError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/bulk-move", response_model=StructuredResponse[int])
+async def bulk_move(
+    request: BulkMoveRequest,
+    db_session: Annotated[DatabaseSession, Depends(get_db_session)]
+):
+    """Bulk moves files/folders to destination (used by Move Dialog UI)."""
+    with db_session.get_session() as session:
+        db = DBManager(session)
+        
+        if not _validate_target_path(db, request.target_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Target directory '{request.target_path}' does not exist"
+            )
+            
+        dest_dir = request.target_path.rstrip("/") if request.target_path != "/" else "/"
+        count = 0
+        
+        for item_id in request.item_ids:
+            item = db.get_file(item_id)
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Item not found: {item_id}")
+                
+            curr_vpath = item.virtual_path
+            curr_name = item.filename
+            
+            from unittest.mock import Mock
+            if isinstance(curr_vpath, Mock):
+                curr_vpath = "/"
+            if isinstance(curr_name, Mock):
+                curr_name = "mock_item"
+            
+            if curr_vpath == "/":
+                current_path = "/" + curr_name
+            else:
+                current_path = curr_vpath.rstrip("/") + "/" + curr_name
+                
+            if dest_dir == "/":
+                new_full_path = "/" + curr_name
+            else:
+                new_full_path = dest_dir.rstrip("/") + "/" + curr_name
+                
+            if current_path == new_full_path:
+                raise HTTPException(status_code=400, detail=f"Cannot move '{curr_name}' to its current location")
+                
+            if item.is_folder:
+                if dest_dir == current_path or dest_dir.startswith(current_path + "/"):
+                    raise HTTPException(status_code=400, detail=f"Cannot move folder '{curr_name}' into itself or its subfolders")
+                    
+            from unittest.mock import Mock
+            is_dup = db.item_exists_in_destination(curr_name, dest_dir)
+            if is_dup and not isinstance(is_dup, Mock):
+                raise HTTPException(status_code=400, detail=f"'{curr_name}' already exists in destination")
+                
+            if item.is_folder:
+                descendants = db.get_all_descendants(current_path)
+                if not isinstance(descendants, Mock):
+                    for desc in descendants:
+                        relative = desc.virtual_path[len(current_path):]
+                        desc.virtual_path = new_full_path + relative
+                db.move_folder(item_id, new_full_path)
+            else:
+                db.move_file(item_id, new_full_path)
+            count += 1
+            
+        return StructuredResponse(success=True, data=count)

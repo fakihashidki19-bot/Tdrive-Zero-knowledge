@@ -531,3 +531,77 @@ class TDriveManager:
         except Exception as e:
             logger.error(f"Metadata healing failed for {file_id}: {e}")
             return False
+
+    async def move_files(self, items: List[Dict[str, str]], destination: str) -> Dict[str, Any]:
+        """
+        Moves multiple files and folders to a destination directory.
+        Uses a transaction to ensure atomicity: if one item fails, the whole operation is rolled back.
+        """
+        dest_dir = destination if destination.startswith("/") else ("/" + destination)
+        dest_dir = dest_dir.rstrip("/") if dest_dir != "/" else "/"
+        
+        with self.db_session.get_session() as session:
+            db = DBManager(session)
+            
+            db_items = []
+            for item in items:
+                file_id = item.get("file_id")
+                if not file_id:
+                    raise ManagerError("Invalid item: missing file_id")
+                db_item = db.get_file(file_id)
+                if not db_item:
+                    raise ManagerError(f"Item not found: {file_id}")
+                db_items.append(db_item)
+                
+            for db_item in db_items:
+                curr_vpath = db_item.virtual_path
+                curr_name = db_item.filename
+                
+                if curr_vpath == "/":
+                    current_path = "/" + curr_name
+                else:
+                    current_path = curr_vpath.rstrip("/") + "/" + curr_name
+                    
+                if dest_dir == "/":
+                    new_full_path = "/" + curr_name
+                else:
+                    new_full_path = dest_dir.rstrip("/") + "/" + curr_name
+                
+                if current_path == new_full_path:
+                    raise ManagerError(f"Cannot move '{curr_name}' to its current location")
+                
+                if db_item.is_folder:
+                    if dest_dir == current_path or dest_dir.startswith(current_path + "/"):
+                        raise ManagerError(f"Cannot move folder '{curr_name}' into itself or its subfolders")
+                
+                if db.item_exists_in_destination(curr_name, dest_dir):
+                    raise ManagerError(f"'{curr_name}' already exists in destination")
+            
+            for db_item in db_items:
+                curr_vpath = db_item.virtual_path
+                curr_name = db_item.filename
+                
+                if curr_vpath == "/":
+                    current_path = "/" + curr_name
+                else:
+                    current_path = curr_vpath.rstrip("/") + "/" + curr_name
+                    
+                if dest_dir == "/":
+                    new_full_path = "/" + curr_name
+                else:
+                    new_full_path = dest_dir.rstrip("/") + "/" + curr_name
+                
+                if db_item.is_folder:
+                    descendants = db.get_all_descendants(current_path)
+                    for desc in descendants:
+                        relative = desc.virtual_path[len(current_path):]
+                        desc.virtual_path = new_full_path + relative
+                
+                db_item.virtual_path = dest_dir
+                
+        return {
+            "success": True,
+            "moved_count": len(items),
+            "failed_count": 0,
+            "errors": None
+        }

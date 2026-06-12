@@ -350,10 +350,11 @@ async def clear_all_jobs(
 
 @router.post("/audit/full", response_model=StructuredResponse[dict], dependencies=[Depends(check_dev_mode)])
 async def full_audit(
-    manager: Annotated[TDriveManager, Depends(get_manager)]
+    manager: Annotated[TDriveManager, Depends(get_manager)],
+    sm: Annotated[SessionManager, Depends(get_session_manager)]
 ):
     """Performs a deep integrity audit."""
     from core.recovery import RecoveryEngine
-    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password)
+    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password, session_manager=sm)
     report = await engine.audit_integrity()
     return StructuredResponse(success=True, data=report)

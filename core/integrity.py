@@ -32,7 +32,7 @@ class IntegrityGuard:
 
     def __init__(self, sm: Optional[SessionManager] = None):
         self.sm = sm or SessionManager()
-        self.lock_file = self.sm.config_dir / "instance.lock"
+        self.lock_file = Path(self.sm.config_dir) / "instance.lock"
 
     def get_machine_id(self) -> str:
         """Generates a stable identifier for the current hardware."""

@@ -44,3 +44,14 @@ export function useStarFile() {
     },
   });
 }
+
+export function useAllFolders() {
+  return useQuery({
+    queryKey: ["files", "all-folders"],
+    queryFn: async () => {
+      const response = await api.get<StructuredResponse<FileItem[]>>("/files/all-folders");
+      return response.data.data || [];
+    },
+    staleTime: 5000,
+  });
+}

@@ -20,7 +20,8 @@ import {
   History,
   CheckCircle2,
   Circle,
-  Star
+  Star,
+  FolderOpen
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import toast from "react-hot-toast";
@@ -33,6 +34,7 @@ import { cn, Button } from "@/components/ui";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { PreviewModal } from "./PreviewModal";
+import { MoveDialog } from "./MoveDialog";
 
 interface FileItemProps {
   file: FileType;
@@ -45,6 +47,7 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [showMobileActions, setShowMobileMenu] = React.useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
+  const [isMoveOpen, setIsMoveOpen] = React.useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { confirm, prompt, addNotification } = useNotificationStore();
@@ -474,6 +477,7 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
         onRename={handleRename}
         onRestore={() => restoreMutation.mutate()}
         onStar={handleToggleStar}
+        onMove={() => setIsMoveOpen(true)}
         isDownloading={isDownloading}
         isDeleting={isTrashView ? permanentDeleteMutation.isPending : trashMutation.isPending}
         isRenaming={renameMutation.isPending}
@@ -490,6 +494,15 @@ export function FileItem({ file, viewMode, currentPath, isTrashView = false }: F
           onDelete={handleDelete}
         />
       )}
+
+      {!isTrashView && (
+        <MoveDialog
+          isOpen={isMoveOpen}
+          onClose={() => setIsMoveOpen(false)}
+          items={[file]}
+          currentPath={currentPath}
+        />
+      )}
     </div>
   );
 }
@@ -504,6 +517,7 @@ function ActionMenu({
   onRename,
   onRestore,
   onStar,
+  onMove,
   isDownloading, 
   isDeleting,
   isRenaming,
@@ -584,6 +598,17 @@ function ActionMenu({
                 <div className="text-neutral-500 p-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Edit2 size={18} /></div>
                 <span className="text-xs font-bold">Rename</span>
                 {isRenaming && <Loader2 size={14} className="animate-spin ml-auto" />}
+              </button>
+
+              <button 
+                onClick={() => {
+                  onMove?.();
+                  onClose();
+                }}
+                className="w-full flex items-center space-x-3 p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-all active:scale-95"
+              >
+                <div className="text-neutral-500 p-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><FolderOpen size={18} /></div>
+                <span className="text-xs font-bold">Move</span>
               </button>
 
               <button className="w-full flex items-center space-x-3 p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-all">

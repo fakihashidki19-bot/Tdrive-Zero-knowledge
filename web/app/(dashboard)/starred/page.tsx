@@ -5,6 +5,7 @@ import { useStarredFiles } from "@/hooks/api/useFiles";
 import { FileItem } from "@/components/explorer/FileItem";
 import { useUIStore } from "@/store/useUIStore";
 import { useSelectionStore } from "@/store/useSelectionStore";
+import { BulkActionToolbar } from "@/components/explorer/BulkActionToolbar";
 import { 
   LayoutGrid, 
   List as ListIcon, 
@@ -132,30 +133,17 @@ export default function StarredPage() {
       </header>
 
       {/* 2. Bulk Actions Bar */}
-      {selectedIds.length > 0 && (
-        <div className="mx-4 md:mx-8 mt-4 p-2 bg-primary text-white rounded-2xl flex items-center justify-between shadow-lg shadow-primary/20 animate-in slide-in-from-top-4 duration-300">
-           <div className="flex items-center pl-2">
-              <button onClick={clearSelection} className="p-1 hover:bg-white/20 rounded-lg mr-3">
-                <X size={16} />
-              </button>
-              <span className="text-xs font-black uppercase tracking-widest">{selectedIds.length} Selected</span>
-           </div>
-           <div className="flex items-center space-x-1">
-              <Button variant="ghost" size="sm" className="h-9 hover:bg-white/20 text-white rounded-xl px-4" onClick={handleBulkDownload}>
-                 <Download size={16} className="mr-2" />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Download</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="h-9 hover:bg-white/20 text-white rounded-xl px-4" onClick={() => bulkUnstarMutation.mutate()}>
-                 <Star size={16} className="mr-2" />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Unstar</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="h-9 hover:bg-white/20 text-white rounded-xl px-4" onClick={() => bulkTrashMutation.mutate()}>
-                 <Trash size={16} className="mr-2" />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Trash</span>
-              </Button>
-           </div>
-        </div>
-      )}
+      <BulkActionToolbar 
+        selectedCount={selectedIds.length}
+        onClear={clearSelection}
+        onDownload={handleBulkDownload}
+        onUnstar={() => bulkUnstarMutation.mutate()}
+        onTrash={async () => {
+          if (await confirm({ title: "Move to Trash?", message: `Do you want to move ${selectedIds.length} items to the trash?` })) {
+            bulkTrashMutation.mutate();
+          }
+        }}
+      />
 
       {/* 3. Main Content */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 scrollbar-none">

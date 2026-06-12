@@ -245,8 +245,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(materialization_worker())
         asyncio.create_task(bot_worker())
 
-        yield
-
+    yield
     await close_tg_client()
 
 app = FastAPI(

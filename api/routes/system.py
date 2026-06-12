@@ -104,10 +104,11 @@ async def update_bot_token(
 @router.post("/rebuild", response_model=StructuredResponse[dict])
 async def rebuild_index(
     manager: Annotated[TDriveManager, Depends(get_manager)],
+    sm: Annotated[SessionManager, Depends(get_session_manager)],
     full: bool = False
 ):
     from core.recovery import RecoveryEngine
-    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password)
+    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password, session_manager=sm)
     stats = await engine.rebuild_index(full=full)
     
     if stats["errors"] > 0 and stats["recovered_chunks"] == 0:
@@ -120,19 +121,21 @@ async def rebuild_index(
 
 @router.get("/audit", response_model=StructuredResponse[dict])
 async def audit_integrity(
-    manager: Annotated[TDriveManager, Depends(get_manager)]
+    manager: Annotated[TDriveManager, Depends(get_manager)],
+    sm: Annotated[SessionManager, Depends(get_session_manager)]
 ):
     from core.recovery import RecoveryEngine
-    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id)
+    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, session_manager=sm)
     report = await engine.audit_integrity()
     return StructuredResponse(success=True, data=report)
 
 @router.post("/cleanup", response_model=StructuredResponse[dict])
 async def cleanup_system(
-    manager: Annotated[TDriveManager, Depends(get_manager)]
+    manager: Annotated[TDriveManager, Depends(get_manager)],
+    sm: Annotated[SessionManager, Depends(get_session_manager)]
 ):
     from core.recovery import RecoveryEngine
-    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password)
+    engine = RecoveryEngine(manager.db_session, manager.tg_client, manager.channel_id, master_password=manager.master_password, session_manager=sm)
     deleted_count = await engine.cleanup_orphans()
     return StructuredResponse(success=True, data={"deleted_count": deleted_count})
 
